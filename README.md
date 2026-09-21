@@ -2,7 +2,7 @@
 
 I built Cannon Game to study how people change their aiming strategy when visual feedback is altered. This repository contains the Unity/C# task used in Experiment 2b of Townsend et al. (2026), *Current Biology*.
 
-Participants aim at eight target positions. The cannon also makes automatic adjustments that simulate implicit adaptation alongside the participant's strategic re-aiming. The task records key presses, timestamps, aiming angles, target positions and outcomes.
+Participants aim at eight target positions. The cannon also makes automatic adjustments that simulate implicit adaptation alongside the participant's strategic re-aiming. 
 
 ## Run the task
 
