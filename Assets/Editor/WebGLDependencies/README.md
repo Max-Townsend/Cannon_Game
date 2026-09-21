@@ -14,4 +14,4 @@ The WebGL build hook loads these scripts before Unity starts:
 
 The `.txt` suffix keeps Unity from interpreting JavaScript as UnityScript.
 The build hook removes that suffix when copying files into a WebGL build.
-See the [project README](../../../README.md) for setup and AWS configuration.
+See the [running guide](../../../docs/RUNNING.md) for setup and AWS configuration.

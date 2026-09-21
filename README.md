@@ -1,68 +1,44 @@
-# Implicit8Tar — Experiment 2b
+# Cannon Game
 
-This project contains the Unity cannon-aiming task used in **Experiment 2b** of
-[An Aha moment precedes the strategic response to a visuomotor rotation](https://doi.org/10.1016/j.cub.2026.04.021)
-(Townsend et al., 2026, *Current Biology*). **Max Townsend** is the paper's first
-author and developed the task software.
+**An interactive experiment for studying how people discover and adapt movement strategies.**
 
-Experiment 2b uses eight target positions and a cannon autocorrection model that
-simulates implicit adaptation alongside participants' strategic re-aiming. See the
-paper for the full experimental methods and results.
+Participants aim a cannon at targets while the relationship between their aim and visual feedback changes. This Unity project contains the eight-target task used in **Experiment 2b** of Townsend et al. (2026), *Current Biology*. A cannon autocorrection model simulates implicit adaptation alongside the participant's strategic re-aiming.
 
-This public version supports local trial-data saving. AWS saving is optional and
-disabled by default; setup and data-export instructions are below.
+Developed by **Max Townsend** as part of his PhD research in computational cognitive science.
+
+[Read the paper](https://doi.org/10.1016/j.cub.2026.04.021) · [Related browser demo](https://live0.d18azccbguoaon.amplifyapp.com/) · [Contact](mailto:max.o.b.townsend@gmail.com)
+
+The hosted demo is a separate Cannon Game build; this repository contains the Experiment 2b variant.
+
+## What this project demonstrates
+
+- **Experimental software:** instructions, practice, trial blocks, eight target positions and controlled visual perturbations.
+- **Behavioural measurement:** records key presses, timestamps, aiming angles, target position, feedback and trial outcomes.
+- **Data collection across platforms:** C# task logic, a JavaScript bridge for WebGL, local data export and optional AWS saving.
+
+**Stack:** Unity 2019.4.4f1 · C# · JavaScript · WebGL · AWS Cognito / DynamoDB (optional).
+
+## Explore the code
+
+| Start here | What to look for |
+|---|---|
+| [Task controller](Assets/canonRotation.cs) | Player input, instructions and the simulated adaptation model |
+| [Trial sequence](Assets/blockTrial.cs) | Targets, perturbations, feedback and trial transitions |
+| [Trial recording](Assets/ExperimentController.cs) | Behavioural fields and platform-specific saving |
+| [Browser storage](Assets/Editor/WebGLDependencies/cannon-storage.js.txt) | Local persistence, save status and JSON export |
+
+## Run locally
+
+1. Clone this repository and open it in **Unity 2019.4.4f1**.
+2. Open `Assets/Scenes/SampleScene.unity` and press **Play**.
+3. Follow the instructions: **A / D** to aim, **Space** to fire.
+
+Local saving works without AWS configuration. To build for a browser, install Unity's **WebGL Build Support** module, choose **Tools → Cannon → Build WebGL**, and serve `Builds/WebGL` over HTTP. Browser trials require fullscreen.
+
+See [running, data export and AWS setup](docs/RUNNING.md) for storage locations, browser export instructions and configuration.
 
 ## Citation
 
-If you use this task in research, please cite:
+Townsend, M., Warburton, M., Campagnoli, C., Mon-Williams, M., Mushtaq, F., & Morehead, J. R. (2026). **An Aha moment precedes the strategic response to a visuomotor rotation.** *Current Biology, 36*(10), 2568–2580.e5. [Paper and methods](https://doi.org/10.1016/j.cub.2026.04.021) · [Machine-readable citation](CITATION.cff).
 
-> Townsend, M., Warburton, M., Campagnoli, C., Mon-Williams, M., Mushtaq, F., &
-> Morehead, J. R. (2026). An Aha moment precedes the strategic response to a
-> visuomotor rotation. *Current Biology, 36*(10), 2568–2580.e5.
-> https://doi.org/10.1016/j.cub.2026.04.021
-
-[Publisher full text](https://www.cell.com/current-biology/fulltext/S0960-9822%2826%2900456-2)
-· [Machine-readable citation](CITATION.cff)
-
-## Run
-
-1. Open the project in **Unity 2019.4.4f1**.
-2. Open `Assets/Scenes/SampleScene.unity` and press **Play**.
-3. Follow the on-screen instructions. Use **A/D** to aim and **Space** to fire.
-   Browser trials require fullscreen.
-
-To build for the browser, install Unity's **WebGL Build Support** module and choose
-**Tools → Cannon → Build WebGL**. Serve `Builds/WebGL` over HTTP or use Unity's
-**Build and Run**. The build hook includes the storage scripts automatically.
-
-## Data
-
-- **Browser:** Trials are saved to IndexedDB, with localStorage as a fallback.
-  Use **Download saved data** to export JSON. Exit fullscreen if the button is
-  hidden. Records include trial fields, session ID, timestamp, and remote-save
-  status.
-- **Editor / desktop:** Trials are appended to
-  `Application.persistentDataPath/LocalData/cannon-data-<session>.jsonl`.
-  The game displays the full path and save status.
-
-Browser records belong to the current browser profile and site origin. Download
-them after each session: clearing browser storage can remove them. If storage is
-unavailable, the status warns that records are **only in memory**; download them
-before closing the page.
-
-## Optional AWS saving
-
-WebGL builds support Cognito temporary credentials and DynamoDB through the bundled
-AWS SDK v2.
-
-1. Configure a Cognito identity pool and restrict its IAM role to the required
-   DynamoDB tables.
-2. Copy `Assets/Editor/WebGLDependencies/aws-config.example.js.txt` to
-   `aws-config.local.js.txt` in the same directory.
-3. Set `enabled: true`, `region`, `identityPoolId`, and the table mappings. For
-   authenticated identities, provide `logins` tokens at runtime.
-4. Rebuild. The local configuration is ignored by Git but included in the build.
-
-Browser configuration is public: use temporary credentials, never long-lived
-access keys. Every remote write retains a local copy. Failed remote writes appear
-in the status and exports and are not retried automatically.
+**Questions about the task or research:** [max.o.b.townsend@gmail.com](mailto:max.o.b.townsend@gmail.com).

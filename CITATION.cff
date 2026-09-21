@@ -3,10 +3,12 @@ message: >-
   If you use this task in research, please cite the paper below. This project
   contains the cannon-aiming task used in Experiment 2b.
 type: software
-title: "Implicit8Tar: Experiment 2b cannon-aiming task"
+title: "Cannon Game: Experiment 2b cannon-aiming task"
+repository-code: "https://github.com/Max-Townsend/Cannon_Game"
 authors:
   - family-names: Townsend
     given-names: Max
+    email: max.o.b.townsend@gmail.com
 abstract: >-
   Unity cannon-aiming task with eight target positions and simulated implicit
   adaptation, used in Experiment 2b of Townsend et al. (2026), An Aha moment
