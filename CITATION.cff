@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: >-
+  If you use this task in research, please cite the paper below. This project
+  contains the cannon-aiming task used in Experiment 2b.
+type: software
+title: "Implicit8Tar: Experiment 2b cannon-aiming task"
+authors:
+  - family-names: Townsend
+    given-names: Max
+abstract: >-
+  Unity cannon-aiming task with eight target positions and simulated implicit
+  adaptation, used in Experiment 2b of Townsend et al. (2026), An Aha moment
+  precedes the strategic response to a visuomotor rotation.
+keywords:
+  - visuomotor adaptation
+  - strategic re-aiming
+  - implicit adaptation
+  - cannon-aiming task
+  - Experiment 2b
+  - Unity
+preferred-citation:
+  type: article
+  title: An Aha moment precedes the strategic response to a visuomotor rotation
+  authors:
+    - family-names: Townsend
+      given-names: Max
+    - family-names: Warburton
+      given-names: Matthew
+    - family-names: Campagnoli
+      given-names: Carlo
+    - family-names: Mon-Williams
+      given-names: Mark
+    - family-names: Mushtaq
+      given-names: Faisal
+    - family-names: Morehead
+      given-names: J. Ryan
+  journal: Current Biology
+  volume: "36"
+  issue: "10"
+  start: "2568"
+  end: "2580.e5"
+  year: 2026
+  doi: 10.1016/j.cub.2026.04.021
+  url: https://doi.org/10.1016/j.cub.2026.04.021

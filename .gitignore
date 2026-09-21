@@ -1,0 +1,48 @@
+# Unity-generated and machine-specific files
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Bb]uild/
+/[Bb]uilds/
+.vs/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.unityproj
+*.opendb
+*.VC.db
+
+# Local runtime configuration
+aws-config.local.js.txt
+aws-config.local.js.txt.meta
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Archives and compiled builds
+*.zip
+*.7z
+*.unitypackage
+*.exe
+*.unityweb
+*.wasm
+
+# Participant exports and local experiment records
+cannon-data-*.json
+cannon-data-*.jsonl
+LocalData/
+
+# Editor and operating-system metadata
+.vs.meta
+.idea.meta
+.DS_Store
+Thumbs.db
+Desktop.ini

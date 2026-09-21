@@ -1,0 +1,342 @@
+(function (root) {
+    'use strict';
+    var config = root.CannonAwsConfig || {};
+    var prefix = 'cannon-experiment:v1:';
+    var session = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    var sequence = 0,
+        records = {},
+        unsaved = {},
+        savedIds = {},
+        pending = 0,
+        saved = 0;
+    var remoteFailures = 0,
+        remoteSaved = 0,
+        client = null,
+        dbPromise = null;
+    var remoteMessage =
+        'Local saving only. Configure AWS credentials through Cognito to save remotely.';
+    var statusNode = null,
+        statusListener = null,
+        exportWarning = '';
+
+    if (config.enabled === true && config.identityPoolId && root.AWS) {
+        try {
+            var region = config.region || 'eu-west-2';
+            var credentials = new root.AWS.CognitoIdentityCredentials(
+                {
+                    IdentityPoolId: config.identityPoolId,
+                    Logins: config.logins || {}
+                },
+                { region: region }
+            );
+            client = new root.AWS.DynamoDB.DocumentClient({
+                region: region,
+                credentials: credentials,
+                maxRetries: 1,
+                httpOptions: { connectTimeout: 5000, timeout: 10000 }
+            });
+            remoteMessage =
+                'Local saving enabled. Remote AWS saving configured; awaiting confirmation.';
+        } catch (error) {
+            remoteMessage = 'AWS setup failed. Saving locally only.';
+        }
+    } else if (config.enabled === true) {
+        remoteMessage = 'AWS configuration or SDK is missing. Saving locally only.';
+    }
+
+    function status() {
+        var text = remoteMessage + ' Saved locally this session: ' + saved + '.';
+        if (pending) text += ' Local writes pending: ' + pending + '.';
+        if (remoteSaved) text += ' Saved remotely: ' + remoteSaved + '.';
+        if (remoteFailures) text += ' Remote saves failed: ' + remoteFailures + '.';
+        if (Object.keys(unsaved).length)
+            text +=
+                ' WARNING: Some records are only in memory. Download data before closing this page.';
+        if (exportWarning) text += ' ' + exportWarning;
+        return text;
+    }
+    function render() {
+        var text = status();
+        if (statusNode) statusNode.textContent = text;
+        if (statusListener) statusListener(text);
+    }
+
+    function openDatabase() {
+        if (dbPromise) return dbPromise;
+        dbPromise = new Promise(function (resolve, reject) {
+            if (!root.indexedDB) {
+                reject(new Error('IndexedDB unavailable'));
+                return;
+            }
+            var settled = false;
+            var timer = root.setTimeout(function () {
+                settled = true;
+                reject(new Error('Local database timed out'));
+            }, 5000);
+            try {
+                var request = root.indexedDB.open('CannonExperiment', 1);
+                request.onupgradeneeded = function () {
+                    if (!request.result.objectStoreNames.contains('records'))
+                        request.result.createObjectStore('records', { keyPath: 'id' });
+                };
+                request.onsuccess = function () {
+                    root.clearTimeout(timer);
+                    if (settled) {
+                        request.result.close();
+                        return;
+                    }
+                    settled = true;
+                    request.result.onversionchange = function () {
+                        request.result.close();
+                    };
+                    resolve(request.result);
+                };
+                request.onerror = request.onblocked = function () {
+                    root.clearTimeout(timer);
+                    settled = true;
+                    reject(new Error('Local database unavailable'));
+                };
+            } catch (error) {
+                root.clearTimeout(timer);
+                settled = true;
+                reject(error);
+            }
+        });
+        return dbPromise;
+    }
+
+    function persist(record) {
+        return openDatabase()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    var transaction = db.transaction('records', 'readwrite');
+                    transaction.objectStore('records').put(record);
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = transaction.onabort = function () {
+                        reject(new Error('Local write failed'));
+                    };
+                });
+            })
+            .catch(function () {
+                // The caller retains an exportable copy if both storage backends fail.
+                root.localStorage.setItem(prefix + record.id, JSON.stringify(record));
+            });
+    }
+
+    function saveLocal(record) {
+        record.revision = (record.revision || 0) + 1;
+        pending++;
+        render();
+        return persist(record)
+            .then(
+                function () {
+                    delete unsaved[record.id];
+                    savedIds[record.id] = true;
+                },
+                function () {
+                    unsaved[record.id] = true;
+                    delete savedIds[record.id];
+                }
+            )
+            .then(function () {
+                pending--;
+                saved = Object.keys(savedIds).length;
+                render();
+            });
+    }
+
+    function write(kind, table, item) {
+        var record = {
+            id: session + '-' + ++sequence,
+            session: session,
+            recordedAt: new Date().toISOString(),
+            kind: kind,
+            table: table,
+            item: item,
+            remote: client ? 'pending' : 'not-configured'
+        };
+        records[record.id] = record;
+        return saveLocal(record).then(function () {
+            if (!client) return record;
+            return new Promise(function (resolve) {
+                var finished = false;
+                function complete(error) {
+                    if (finished) return;
+                    finished = true;
+                    record.remote = error ? 'failed' : 'saved';
+                    if (error) {
+                        remoteFailures++;
+                        remoteMessage = 'AWS remote saving failed. Local saving remains enabled.';
+                    } else {
+                        remoteSaved++;
+                        if (!remoteFailures) remoteMessage = 'Saving locally and to AWS.';
+                    }
+                    // Do not store error objects: they can contain request metadata.
+                    saveLocal(record).then(function () {
+                        resolve(record);
+                    });
+                }
+                try {
+                    var targetTable = (config.tables && config.tables[table]) || table;
+                    client.put({ TableName: targetTable, Item: item }, complete);
+                } catch (error) {
+                    complete(error);
+                }
+            });
+        });
+    }
+
+    function exportData() {
+        exportWarning = '';
+        return openDatabase()
+            .then(function (db) {
+                return new Promise(function (resolve, reject) {
+                    var transaction = db.transaction('records', 'readonly');
+                    var result = [];
+                    var request = transaction.objectStore('records').openCursor();
+                    request.onsuccess = function () {
+                        var cursor = request.result;
+                        if (cursor) {
+                            result.push(cursor.value);
+                            cursor.continue();
+                        }
+                    };
+                    transaction.oncomplete = function () {
+                        resolve(result);
+                    };
+                    transaction.onerror = transaction.onabort = function () {
+                        reject(new Error('Cannot read local database'));
+                    };
+                });
+            })
+            .catch(function () {
+                exportWarning =
+                    'IndexedDB unavailable; export includes accessible fallback storage and this session.';
+                return [];
+            })
+            .then(function (stored) {
+                var combined = {};
+                stored.forEach(function (record) {
+                    combined[record.id] = record;
+                });
+                try {
+                    for (var i = 0; i < root.localStorage.length; i++) {
+                        var key = root.localStorage.key(i);
+                        if (key.indexOf(prefix) === 0) {
+                            try {
+                                var record = JSON.parse(root.localStorage.getItem(key));
+                                if (
+                                    !combined[record.id] ||
+                                    (record.revision || 0) > (combined[record.id].revision || 0)
+                                )
+                                    combined[record.id] = record;
+                            } catch (error) {
+                                exportWarning = 'Some older local records could not be read.';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    exportWarning =
+                        'Fallback storage unavailable; export includes accessible database records and this session.';
+                }
+                Object.keys(records).forEach(function (id) {
+                    combined[id] = records[id];
+                });
+                render();
+                return {
+                    format: 'cannon-experiment-v1',
+                    exportedAt: new Date().toISOString(),
+                    warning: exportWarning,
+                    records: Object.keys(combined)
+                        .sort()
+                        .map(function (id) {
+                            return combined[id];
+                        })
+                };
+            });
+    }
+
+    function download() {
+        return exportData()
+            .then(function (data) {
+                var url = root.URL.createObjectURL(
+                    new root.Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                );
+                var link = root.document.createElement('a');
+                link.href = url;
+                link.download =
+                    'cannon-data-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+                root.document.body.appendChild(link);
+                link.click();
+                link.remove();
+                root.setTimeout(function () {
+                    root.URL.revokeObjectURL(url);
+                }, 1000);
+            })
+            .catch(function () {
+                exportWarning = 'Data download failed. Keep this page open and try again.';
+                render();
+            });
+    }
+
+    function createToolbar() {
+        if (!root.document || root.document.getElementById('cannon-storage-status')) return;
+        var panel = root.document.createElement('div');
+        panel.id = 'cannon-storage-status';
+        panel.style.cssText =
+            'position:fixed;bottom:8px;left:8px;right:8px;z-index:2147483647;padding:10px 14px;background:#fff4cf;color:#252525;font:14px/1.4 sans-serif;border:1px solid #947324;border-radius:6px;display:flex;gap:14px;align-items:center;cursor:auto;';
+        statusNode = root.document.createElement('span');
+        statusNode.setAttribute('role', 'status');
+        statusNode.style.flex = '1';
+        panel.appendChild(statusNode);
+        var button = root.document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Download saved data';
+        button.style.cssText = 'padding:8px 12px;cursor:pointer;white-space:nowrap;';
+        button.onclick = download;
+        panel.appendChild(button);
+        if (root.unityInstance && root.unityInstance.SetFullscreen) {
+            var fullscreen = root.document.createElement('button');
+            fullscreen.type = 'button';
+            fullscreen.textContent = 'Fullscreen';
+            fullscreen.style.cssText = button.style.cssText;
+            fullscreen.onclick = function () {
+                root.unityInstance.SetFullscreen(1);
+            };
+            panel.appendChild(fullscreen);
+        }
+        root.document.body.appendChild(panel);
+        render();
+        function moveForFullscreen() {
+            var container =
+                root.document.fullscreenElement || root.document.webkitFullscreenElement;
+            // A fullscreen canvas cannot display child controls; keep them on the page.
+            if (container && container.tagName !== 'CANVAS') container.appendChild(panel);
+            else root.document.body.appendChild(panel);
+        }
+        root.document.addEventListener('fullscreenchange', moveForFullscreen);
+        root.document.addEventListener('webkitfullscreenchange', moveForFullscreen);
+    }
+    root.CannonStorage = {
+        write: write,
+        exportData: exportData,
+        download: download,
+        status: status,
+        onStatus: function (listener) {
+            statusListener = listener;
+            render();
+        }
+    };
+    if (root.document) {
+        if (root.document.readyState === 'loading')
+            root.document.addEventListener('DOMContentLoaded', createToolbar);
+        else createToolbar();
+    }
+    if (root.addEventListener)
+        root.addEventListener('beforeunload', function (event) {
+            if (pending || Object.keys(unsaved).length) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+})(window);

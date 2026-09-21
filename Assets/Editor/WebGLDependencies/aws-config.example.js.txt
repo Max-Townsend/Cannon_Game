@@ -1,0 +1,9 @@
+// Copy to aws-config.local.js.txt and use Cognito temporary credentials.
+window.CannonAwsConfig = {
+    enabled: false,
+    region: 'eu-west-2',
+    identityPoolId: '',
+    tables: {
+        ESSMV2: 'YOUR-TRIAL-TABLE'
+    }
+};
